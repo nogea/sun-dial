@@ -19,5 +19,3 @@ open "Sun Dial.app"
 ```
 
 To install, copy `Sun Dial.app` into `/Applications`.
-
-`prototype/sun-dial.html` is the earlier web prototype.

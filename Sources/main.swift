@@ -27,7 +27,7 @@ let defaultPlaces: [Place] = [
 /// Longitude of the place at the top of the dial (the first place).
 var homeLon = defaultPlaces[0].lon
 
-// MARK: - Sky math (same formulas as the web prototype)
+// MARK: - Sky math
 
 func mod(_ a: Double, _ n: Double) -> Double { (a.truncatingRemainder(dividingBy: n) + n).truncatingRemainder(dividingBy: n) }
 let rad = Double.pi / 180
