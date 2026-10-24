@@ -1,0 +1,332 @@
+<title>Sun Dial</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one centered dial (Earth seen from above the North Pole), controls and the place list beneath it. */
+:root {
+  --bg: #eef1f6;
+  --fg: #1b2233;
+  --muted: #5d6679;
+  --line: #d3d9e4;
+  --panel: #ffffff;
+  --accent: #e08a1e;
+  --day: #ffe7a8;
+  --day-hi: #fff4d2;
+  --dusk: #e9a07a;
+  --night: #2a3160;
+  --night-deep: #141938;
+  --rim: #9aa4b8;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1220; --fg: #e6e9f2; --muted: #98a0b5; --line: #2a3147; --panel: #161b2d;
+    --accent: #f3a640; --rim: #4a536d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1220; --fg: #e6e9f2; --muted: #98a0b5; --line: #2a3147; --panel: #161b2d;
+  --accent: #f3a640; --rim: #4a536d; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-display); font-size: 15px;
+}
+.wrap {
+  max-width: 640px; margin: 0 auto;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 20px;
+}
+header h1 { font-size: 30px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; line-height: 1.45; }
+.dial { width: 100%; max-width: 560px; aspect-ratio: 1; margin: 0 auto; display: block; overflow: visible; }
+.dial text { font-family: var(--font-display); fill: var(--fg); }
+.dial .lbl { font-size: 13px; font-weight: 600; }
+.dial .sub { font-size: 10.5px; fill: var(--muted); font-family: var(--font-mono); }
+.dial .tick { stroke: var(--rim); }
+.controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+}
+.controls input[type=range] { flex: 1 1 200px; min-width: 0; accent-color: var(--accent); }
+.when { font-family: var(--font-mono); font-size: 13px; color: var(--muted); min-width: 11ch; font-variant-numeric: tabular-nums; }
+button, select {
+  font: inherit; font-size: 14px; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--rim); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+ul.places { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+ul.places li {
+  display: grid; grid-template-columns: 14px minmax(0,1fr) auto auto; align-items: center; gap: 12px;
+  padding: 10px 2px; border-bottom: 1px solid var(--line);
+}
+.swatch { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--rim); }
+.pname { font-weight: 600; min-width: 0; }
+.pname small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+.stime { font-family: var(--font-mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rowbtns { display: flex; gap: 4px; }
+.rowbtns button { padding: 3px 8px; font-size: 12px; }
+.home-tag { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.add { display: flex; gap: 8px; flex-wrap: wrap; }
+.note { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Sun Dial</h1>
+    <p>The sun circles the places you care about. Your home sits at the top, so the sun is overhead when it's true noon there. Lit places are having their day; shaded ones are in their night.</p>
+  </header>
+
+  <svg class="dial" id="dial" viewBox="-280 -280 560 560" role="img" aria-label="Dial showing the sun's position over your places">
+    <defs>
+      <!-- Light spreads from the point under the sun and fades to full black on the far side. -->
+      <radialGradient id="daynight" gradientUnits="userSpaceOnUse" cx="0" cy="-170" r="340">
+        <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+        <stop offset="0.12" stop-color="#fff6d0" stop-opacity="0.45"/>
+        <stop offset="0.32" stop-color="#fff6d0" stop-opacity="0"/>
+        <stop offset="0.52" stop-color="#1a0e05" stop-opacity="0.35"/>
+        <stop offset="0.72" stop-color="#000000" stop-opacity="0.8"/>
+        <stop offset="0.9" stop-color="#000000" stop-opacity="1"/>
+      </radialGradient>
+      <radialGradient id="ocean">
+        <stop offset="0" stop-color="#2a6e9e"/>
+        <stop offset="1" stop-color="#174a75"/>
+      </radialGradient>
+      <filter id="terrain" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.007" numOctaves="2" seed="11" result="noise"/>
+        <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="height"/>
+        <feComponentTransfer in="height" result="landMask"><feFuncA type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1"/></feComponentTransfer>
+        <feGaussianBlur in="landMask" stdDeviation="9" result="softMask"/>
+        <feFlood flood-color="#4f9478" flood-opacity="0.6"/><feComposite in2="softMask" operator="in"/>
+      </filter>
+      <radialGradient id="moonglow">
+        <stop offset="0.45" stop-color="#cfd8ff" stop-opacity="0.35"/>
+        <stop offset="1" stop-color="#cfd8ff" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="moonface" cx="0.42" cy="0.4" r="0.65">
+        <stop offset="0" stop-color="#f6f4ee"/>
+        <stop offset="0.7" stop-color="#d9d8d2"/>
+        <stop offset="1" stop-color="#b5b4b0"/>
+      </radialGradient>
+      <linearGradient id="moonshade" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#0b0e18" stop-opacity="0.88"/>
+        <stop offset="0.4" stop-color="#0b0e18" stop-opacity="0.7"/>
+        <stop offset="0.58" stop-color="#0b0e18" stop-opacity="0"/>
+      </linearGradient>
+      <clipPath id="globe"><circle r="170"/></clipPath>
+      <radialGradient id="sunglow">
+        <stop offset="0" stop-color="#fff3c4"/>
+        <stop offset="0.35" stop-color="#ffc94a"/>
+        <stop offset="1" stop-color="#ffc94a" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <g clip-path="url(#globe)">
+      <circle r="170" fill="url(#ocean)"/>
+      <!-- Soft, made-up patches of land. Kept quiet so the light is the main thing. Not a real map. -->
+      <rect x="-170" y="-170" width="340" height="340" filter="url(#terrain)"/>
+      <g id="disc"><circle r="170" fill="url(#daynight)"/></g>
+    </g>
+    <circle r="170" fill="none" stroke="var(--rim)" stroke-width="1"/>
+    <g id="ticks"></g>
+    <circle r="3" fill="var(--rim)"/>
+    <g id="pins"></g>
+    <g id="moon">
+      <circle r="24" fill="url(#moonglow)"/>
+      <circle r="13" fill="url(#moonface)"/>
+      <!-- A few craters and maria so it reads as the moon. -->
+      <g fill="#8d93a3">
+        <circle cx="-4" cy="-4" r="4.2" opacity="0.45"/>
+        <circle cx="4.5" cy="-1" r="2.6" opacity="0.4"/>
+        <circle cx="-1" cy="5.5" r="3.2" opacity="0.35"/>
+        <circle cx="6" cy="6" r="1.4" opacity="0.5"/>
+        <circle cx="-8" cy="3" r="1.2" opacity="0.5"/>
+        <circle cx="1.5" cy="-8.5" r="1.1" opacity="0.5"/>
+      </g>
+      <!-- Soft shadow on the side away from the sun; the lit side faces it. -->
+      <g id="moonLit"><circle r="13" fill="url(#moonshade)"/></g>
+      <circle r="13" fill="none" stroke="#c9cdd8" stroke-opacity="0.5" stroke-width="0.8"/>
+    </g>
+    <g id="sun"><circle r="30" fill="url(#sunglow)"/><circle r="11" fill="#ffcf4d" stroke="#f0a51f" stroke-width="1.5"/></g>
+  </svg>
+
+  <div class="controls">
+    <button id="play" type="button" aria-pressed="false">Play day</button>
+    <input id="scrub" type="range" min="-720" max="720" step="5" value="0" aria-label="Shift time from now">
+    <span class="when" id="when">Now</span>
+    <button id="now" type="button">Back to now</button>
+  </div>
+
+  <p class="note" id="moonInfo"></p>
+  <ul class="places" id="list"></ul>
+
+  <div class="add">
+    <select id="addSel" aria-label="Choose a place to add"></select>
+    <button id="addBtn" type="button">Add place</button>
+  </div>
+
+  <p class="note">The places shown at first are examples. The sun moves at its real position: places sit by longitude, not by time zone. For simplicity, every place gets 12 hours of light, as if it were always the equinox. "Sun time" is local solar time, so noon means the sun is at its highest. The land and sea on the disc are decoration, not a map.</p>
+</div>
+
+<script>
+const CITIES = [
+  ["San Jose", -121.89], ["San Francisco", -122.42], ["Los Angeles", -118.24], ["Seattle", -122.33],
+  ["Honolulu", -157.86], ["Anchorage", -149.9], ["Denver", -104.99], ["Chicago", -87.63],
+  ["Mexico City", -99.13], ["New York", -74.0], ["Toronto", -79.38], ["São Paulo", -46.63],
+  ["Buenos Aires", -58.38], ["Reykjavik", -21.94], ["London", -0.13], ["Lisbon", -9.14],
+  ["Paris", 2.35], ["Berlin", 13.4], ["Lagos", 3.38], ["Cairo", 31.24], ["Nairobi", 36.82],
+  ["Istanbul", 28.98], ["Moscow", 37.62], ["Dubai", 55.27], ["Mumbai", 72.88],
+  ["Delhi", 77.21], ["Bangalore", 77.59], ["Kathmandu", 85.32], ["Bangkok", 100.5],
+  ["Singapore", 103.82], ["Shanghai", 121.47], ["Hong Kong", 114.17], ["Seoul", 126.98],
+  ["Tokyo", 139.69], ["Sydney", 151.21], ["Auckland", 174.76]
+].map(([name, lon]) => ({ name, lon }));
+const byName = Object.fromEntries(CITIES.map(c => [c.name, c]));
+
+let state = { places: ["San Jose", "New York", "London", "Bangalore", "Tokyo", "Sydney"], home: "San Jose" };
+try { const s = JSON.parse(localStorage.getItem("sundial") || "null"); if (s && s.places && s.places.length) state = s; } catch (e) {}
+function save() { try { localStorage.setItem("sundial", JSON.stringify(state)); } catch (e) {} }
+
+let offsetMin = 0, playing = false, lastFrame = 0;
+const $ = id => document.getElementById(id);
+const mod = (a, n) => ((a % n) + n) % n;
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+const polar = (r, deg) => [r * Math.sin(deg * Math.PI / 180), -r * Math.cos(deg * Math.PI / 180)];
+
+// Longitude where the sun is directly overhead right now (includes the equation of time).
+function subsolarLon(d) {
+  const utcH = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
+  const start = Date.UTC(d.getUTCFullYear(), 0, 0);
+  const N = Math.floor((d - start) / 864e5);
+  const B = 2 * Math.PI * (N - 81) / 364;
+  const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  return mod(-15 * (utcH - 12 + eot / 60) + 180, 360) - 180;
+}
+// Low-precision moon: good to about a degree, plenty for a dial.
+function moonState(date) {
+  const rad = Math.PI / 180, m = (a, n) => ((a % n) + n) % n;
+  const d = date / 864e5 + 2440587.5 - 2451545.0;
+  const L = 218.316 + 13.176396 * d, Mm = 134.963 + 13.064993 * d, F = 93.272 + 13.22935 * d;
+  const lon = L + 6.289 * Math.sin(Mm * rad), lat = 5.128 * Math.sin(F * rad);
+  const e = 23.44 * rad;
+  const ra = Math.atan2(Math.sin(lon * rad) * Math.cos(e) - Math.tan(lat * rad) * Math.sin(e), Math.cos(lon * rad)) / rad;
+  const gmst = 280.46061837 + 360.98564736629 * d;
+  const g = 357.528 + 0.9856003 * d;
+  const sunLon = 280.46 + 0.9856474 * d + 1.915 * Math.sin(g * rad) + 0.02 * Math.sin(2 * g * rad);
+  const age = m(lon - sunLon, 360);
+  return { sublunarLon: m(ra - gmst + 180, 360) - 180, age, lit: (1 - Math.cos(age * rad)) / 2 };
+}
+function moonPhaseName(age) {
+  const names = ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"];
+  return names[Math.floor(mod(age + 22.5, 360) / 45)];
+}
+const solarHour = (lon, ss) => mod(12 + (lon - ss) / 15, 24);
+// Clockwise angle from the top. Places west of home are clockwise, which is where the sun goes next.
+const dialAngle = lon => mod(byName[state.home].lon - lon, 360);
+
+function phase(h) {
+  if (h >= 6 && h < 9) return "Morning";
+  if (h >= 9 && h < 12) return "Late morning";
+  if (h >= 12 && h < 15) return "Afternoon";
+  if (h >= 15 && h < 18) return "Late afternoon";
+  if (h >= 18 && h < 21) return "Evening";
+  if (h >= 3 && h < 6) return "Before dawn";
+  return "Night";
+}
+function swatchColor(h) {
+  if (h >= 6.5 && h < 17.5) return "var(--day)";
+  if ((h >= 5.5 && h < 6.5) || (h >= 17.5 && h < 18.5)) return "var(--dusk)";
+  return "var(--night)";
+}
+const fmtTime = h => { const m = Math.round(h * 60) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+
+function buildTicks() {
+  const g = $("ticks");
+  for (let i = 0; i < 24; i++) {
+    const a = i * 15, big = i % 6 === 0;
+    const [x1, y1] = polar(170, a), [x2, y2] = polar(big ? 160 : 165, a);
+    g.appendChild(el("line", { x1, y1, x2, y2, class: "tick", "stroke-width": big ? 1.5 : 1 }));
+  }
+}
+
+function buildPins() {
+  const g = $("pins"); g.innerHTML = "";
+  state.places.forEach(name => {
+    const c = byName[name], a = dialAngle(c.lon);
+    const [px, py] = polar(170, a), [lx, ly] = polar(196, a);
+    const s = Math.sin(a * Math.PI / 180), cs = Math.cos(a * Math.PI / 180);
+    const anchor = s > 0.2 ? "start" : s < -0.2 ? "end" : "middle";
+    const dy = cs > 0.8 ? -4 : cs < -0.8 ? 12 : 4;
+    const pin = el("circle", { cx: px, cy: py, r: name === state.home ? 6 : 5, fill: "var(--panel)", stroke: "var(--fg)", "stroke-width": 2, "data-name": name });
+    const t = el("text", { x: lx, y: ly + dy, "text-anchor": anchor, class: "lbl" }); t.textContent = name;
+    const sub = el("text", { x: lx, y: ly + dy + 14, "text-anchor": anchor, class: "sub", "data-sub": name });
+    g.append(pin, t, sub);
+  });
+}
+
+function buildList() {
+  const ul = $("list"); ul.innerHTML = "";
+  state.places.forEach(name => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="swatch" data-sw="${name}"></span>
+      <span class="pname">${name} ${name === state.home ? '<span class="home-tag">Top</span>' : ""}<small data-ph="${name}"></small></span>
+      <span class="stime" data-st="${name}"></span>
+      <span class="rowbtns">${name === state.home ? "" : `<button type="button" data-top="${name}">Put on top</button><button type="button" data-rm="${name}" aria-label="Remove ${name}">✕</button>`}</span>`;
+    ul.appendChild(li);
+  });
+  const sel = $("addSel"); sel.innerHTML = "";
+  CITIES.filter(c => !state.places.includes(c.name)).forEach(c => { const o = document.createElement("option"); o.value = o.textContent = c.name; sel.appendChild(o); });
+}
+
+function update() {
+  const d = new Date(Date.now() + offsetMin * 60000);
+  const ss = subsolarLon(d);
+  const sunA = dialAngle(ss);
+  $("disc").setAttribute("transform", `rotate(${sunA})`);
+  const [sx, sy] = polar(236, sunA);
+  $("sun").setAttribute("transform", `translate(${sx},${sy})`);
+  const moon = moonState(d), moonA = dialAngle(moon.sublunarLon);
+  const [mx, my] = polar(214, moonA);
+  $("moon").setAttribute("transform", `translate(${mx},${my})`);
+  $("moonLit").setAttribute("transform", `rotate(${Math.atan2(sy - my, sx - mx) * 180 / Math.PI})`);
+  $("moonInfo").textContent = `Moon: ${moonPhaseName(moon.age)}, ${Math.round(moon.lit * 100)}% lit as seen from Earth. On the dial it is drawn from above, so its lit half always faces the sun.`;
+  state.places.forEach(name => {
+    const h = solarHour(byName[name].lon, ss);
+    const sub = document.querySelector(`[data-sub="${CSS.escape(name)}"]`); if (sub) sub.textContent = fmtTime(h);
+    const sw = document.querySelector(`[data-sw="${CSS.escape(name)}"]`); if (sw) sw.style.background = swatchColor(h);
+    const ph = document.querySelector(`[data-ph="${CSS.escape(name)}"]`); if (ph) ph.textContent = phase(h);
+    const st = document.querySelector(`[data-st="${CSS.escape(name)}"]`); if (st) st.textContent = fmtTime(h) + " sun time";
+  });
+  const m = Math.abs(offsetMin), sign = offsetMin < 0 ? "−" : "+";
+  $("when").textContent = offsetMin === 0 ? "Now" : `${sign}${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+  $("scrub").value = offsetMin;
+}
+
+function rebuild() { buildPins(); buildList(); update(); save(); }
+
+$("list").addEventListener("click", e => {
+  const top = e.target.dataset.top, rm = e.target.dataset.rm;
+  if (top) { state.home = top; rebuild(); }
+  if (rm) { state.places = state.places.filter(n => n !== rm); rebuild(); }
+});
+$("addBtn").addEventListener("click", () => { const v = $("addSel").value; if (v) { state.places.push(v); rebuild(); } });
+$("scrub").addEventListener("input", e => { offsetMin = +e.target.value; update(); });
+$("now").addEventListener("click", () => { offsetMin = 0; setPlaying(false); update(); });
+function setPlaying(p) { playing = p; $("play").textContent = p ? "Pause" : "Play day"; $("play").setAttribute("aria-pressed", p); lastFrame = 0; if (p) requestAnimationFrame(tick); }
+$("play").addEventListener("click", () => setPlaying(!playing));
+// While playing, one hour passes per second.
+function tick(t) {
+  if (!playing) return;
+  if (lastFrame) { offsetMin += (t - lastFrame) / 1000 * 60; if (offsetMin > 720) offsetMin = -720; }
+  lastFrame = t;
+  offsetMin = Math.round(offsetMin * 10) / 10;
+  update();
+  requestAnimationFrame(tick);
+}
+buildTicks(); rebuild();
+setInterval(() => { if (!playing) update(); }, 15000);
+</script>
