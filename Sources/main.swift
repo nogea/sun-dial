@@ -11,6 +11,9 @@ struct Place: Codable, Identifiable, Equatable {
     var id = UUID()
     let name: String
     let lon: Double
+
+    /// Same name and within about 5 km of longitude: the same place, so it isn't added twice.
+    func isSameSpot(as other: Place) -> Bool { name == other.name && abs(lon - other.lon) < 0.05 }
 }
 
 let defaultPlaces: [Place] = [
@@ -81,6 +84,8 @@ struct DialView: View {
     @State private var adding = false
     @State private var settingHome = false
     @State private var overCancel = false
+    @State private var shakes: CGFloat = 0
+    @State private var notFound = false
     /// True while the pointer is over the Earth or its sky; the pips and center dot only show then.
     @State private var overDial = false
     static let r = 38.0
@@ -181,7 +186,16 @@ struct DialView: View {
                 .padding(.trailing, 6)
             }
             .background(Capsule().fill(Color(red: 0.06, green: 0.08, blue: 0.14).opacity(0.85)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.25), lineWidth: 0.75))
+            .overlay(Capsule().stroke(notFound ? Color(red: 0.9, green: 0.33, blue: 0.3).opacity(0.8) : Color.white.opacity(0.25), lineWidth: 0.75))
+            .modifier(Shake(t: shakes))
+            if notFound {
+                Text("Couldn't find that place")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.85))
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Capsule().fill(Color(red: 0.06, green: 0.08, blue: 0.14).opacity(0.85)))
+                    .transition(.opacity)
+            }
             ForEach(Array(search.results.enumerated()), id: \.offset) { i, r in
                 Button { add(r) } label: {
                     HStack(spacing: 6) {
@@ -212,6 +226,7 @@ struct DialView: View {
 
     func stopAdding() {
         search.query = ""
+        notFound = false
         typing = false
         hovering = false
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { adding = false }
@@ -220,7 +235,13 @@ struct DialView: View {
 
     func add(_ r: MKLocalSearchCompletion) {
         search.resolve(r) { place in
-            if let place { settingHome ? model.setHome(place) : model.add(place) }
+            guard let place else {
+                withAnimation(.linear(duration: 0.4)) { shakes += 1 }
+                notFound = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { notFound = false }
+                return
+            }
+            settingHome ? model.setHome(place) : model.add(place)
             stopAdding()
         }
     }
@@ -295,7 +316,6 @@ struct DialView: View {
     }
 }
 
-/// One place's label. Drag it well away from the dial and let go to remove it.
 /// One place: only its pip shows at rest. Hover the pip and a label pops out
 /// with the name, sun time and a small button: × to remove a place, or a house to change home.
 struct PlaceChip: View {
@@ -500,14 +520,26 @@ final class DialModel: ObservableObject {
     }
 
     func add(_ p: Place) {
-        guard !places.contains(where: { $0.name == p.name }) else { return }
+        guard !places.contains(where: { $0.isSameSpot(as: p) }) else { return }
         places.append(p)
     }
     func remove(_ p: Place) { places.removeAll { $0.id == p.id } }
     /// The new home goes on top; the old home stays on as a regular place.
     func setHome(_ p: Place) {
-        let rest = places.filter { $0.name != p.name }
+        let rest = places.filter { !$0.isSameSpot(as: p) }
         places = [p] + rest
+    }
+}
+
+/// A quick side-to-side shake; animate `t` up by 1 for one shake.
+struct Shake: GeometryEffect {
+    var t: CGFloat
+    var animatableData: CGFloat {
+        get { t }
+        set { t = newValue }
+    }
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(CGAffineTransform(translationX: 5 * sin(t * .pi * 6), y: 0))
     }
 }
 

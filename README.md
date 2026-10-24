@@ -5,15 +5,13 @@ A tiny macOS menu bar app. Instead of numbers, it shows the Earth seen from abov
 - **Menu bar icon:** a small ring whose dark half is the night side, with a dot where the sun is.
 - **Click it:** the Earth, sun and moon float over your desktop with no window around them. Click elsewhere or press Esc to hide.
 - **Drag** the Earth, sun or moon to move the dial anywhere. Right-click the menu bar icon to move it back under the menu bar, or to quit.
-- **Places:** hover over the Earth to see small pips, then hover a pip for its name and sun time.
-  - **+** at the center of the Earth adds a place (city search uses Apple's MapKit).
-  - **×** on a place's label removes it; the **house** button on the home label changes home.
+- **Places:** hover over the Earth to find your places, add new ones, or change home.
 
 Positions use longitude and real solar time, not time zones. Every place is treated as having 12 hours of light, as if it were always the equinox. The moon uses a low-precision formula good to about a degree.
 
 ## Build and run
 
-Needs only the Xcode command line tools (`xcode-select --install`), macOS 13 or later.
+Needs only the Xcode command line tools (`xcode-select --install`), macOS 13 or later. Builds for Apple silicon Macs.
 
 ```sh
 ./build.sh
